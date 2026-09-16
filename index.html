@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Misi Puzzle Kampung Harmoni</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;color:#172033}
+header{background:#123b68;color:white;padding:22px 16px;text-align:center}
+h1{margin:0 0 7px;font-size:clamp(24px,5vw,38px)}
+header p{margin:0;font-size:clamp(15px,2.8vw,19px)}
+main{max-width:1100px;margin:auto;padding:18px}
+.card{background:white;border:3px solid #172033;border-radius:18px;padding:18px;margin-bottom:18px;box-shadow:0 5px 0 #d6dde7}
+h2{margin:0 0 10px;font-size:24px}
+.instructions{font-size:18px;line-height:1.5}
+button{border:3px solid #172033;background:#ffd34e;color:#172033;border-radius:12px;padding:11px 16px;font-weight:700;font-size:16px;cursor:pointer;margin:5px}
+button:hover{transform:translateY(-1px)}
+#puzzle{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:760px;margin:16px auto;background:#172033;padding:4px}
+.piece{aspect-ratio:1/1;position:relative;cursor:pointer;perspective:900px}
+.inner{position:absolute;inset:0;transition:transform .55s;transform-style:preserve-3d}
+.piece.flipped .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border:2px solid white;border-radius:5px;overflow:hidden}
+.front{background-size:400% 300%;background-image:url('kampung-harmoni.jpg')}
+.back{transform:rotateY(180deg);display:flex;align-items:center;justify-content:center;text-align:center;background:#fff8d8;border:3px solid #172033;color:#123b68;font-size:clamp(13px,2.2vw,23px);font-weight:800;padding:5px}
+.badge{position:absolute;z-index:2;left:5px;top:5px;background:white;border:2px solid #172033;border-radius:8px;padding:2px 6px;font-weight:700;font-size:12px}
+#message{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;min-height:70px;border:3px dashed #172033;border-radius:14px;padding:12px;margin-top:12px;background:#fafafa}
+.word{background:#fff;border:3px solid #172033;border-radius:12px;padding:12px 15px;font-weight:800;cursor:grab;font-size:18px;user-select:none}
+.word.selected{outline:5px solid #ffd34e}
+.word.placed{background:#e7f6e7}
+.slot{min-width:135px;min-height:54px;border:3px dashed #64748b;border-radius:12px;padding:8px;text-align:center;display:flex;align-items:center;justify-content:center;font-weight:700}
+#success{display:none;background:#e8f7e9;border:3px solid #26733b;border-radius:14px;padding:15px;text-align:center;font-size:20px;font-weight:800;margin-top:14px}
+.small{font-size:14px;color:#526176}
+@media(max-width:650px){main{padding:10px}.card{padding:12px}#puzzle{gap:2px;padding:2px}.badge{font-size:9px;padding:1px 3px}.word{font-size:15px;padding:9px 10px}}
+</style>
+</head>
+<body>
+<header>
+<h1>🧩 Misi Puzzle Kampung Harmoni</h1>
+<p>Kampung Harmoni kehilangan mesej rahsia. Susun puzzle untuk menemui mesej tersebut.</p>
+</header>
+<main>
+<section class="card">
+<h2>1. Susun 12 keping puzzle</h2>
+<div class="instructions">Klik <b>Susun Semula</b> jika mahu mencuba lagi. Lengkapkan gambar Kampung Harmoni.</div>
+<button id="shuffleBtn">🔀 Susun Semula</button>
+<button id="resetBtn">↩️ Tetapkan Semula</button>
+<div id="puzzle" aria-label="12 keping puzzle"></div>
+<p class="small">Tip: Seret kepingan ke kedudukan yang betul. Pada telefon, tekan satu keping kemudian tekan keping kedua untuk menukar tempat.</p>
+</section>
+
+<section class="card" id="secretCard" style="display:none">
+<h2>2. Mesej di belakang kepingan</h2>
+<div class="instructions">Tekan setiap kepingan untuk membalikkannya. Setiap perkataan muncul pada <b>dua keping</b> yang sepadan.</div>
+<div id="message"></div>
+<div style="text-align:center;margin-top:10px">
+<button id="flipAll">🔄 Balikkan Semua</button>
+<button id="showWords">✨ Buka Mesej Rahsia</button>
+</div>
+<div id="success"></div>
+</section>
+</main>
+<script>
+const cols=4, rows=3, total=12;
+const words=["SEMANGAT","BEKERJASAMA","DAPAT","MENGEKALKAN","KEHARMONIAN","BERSAMA"];
+const pairWord=[];
+for(let i=0;i<total;i++) pairWord.push(words[Math.floor(i/2)]);
+let order=[...Array(total).keys()];
+let selected=null;
+const puzzle=document.getElementById("puzzle");
+const secretCard=document.getElementById("secretCard");
+
+function render(){
+  puzzle.innerHTML="";
+  order.forEach((pieceIndex,pos)=>{
+    const p=document.createElement("div"); p.className="piece"; p.dataset.pos=pos;
+    const inner=document.createElement("div"); inner.className="inner";
+    const front=document.createElement("div"); front.className="face front";
+    const back=document.createElement("div"); back.className="face back";
+    const label=document.createElement("span"); label.className="badge"; label.textContent=pieceIndex+1;
+    front.appendChild(label);
+    front.style.backgroundPosition =
+      `${(pieceIndex%cols)/(cols-1)*100}% ${Math.floor(pieceIndex/cols)/(rows-1)*100}%`;
+    back.textContent=pairWord[pieceIndex];
+    inner.append(front,back); p.appendChild(inner);
+    p.addEventListener("click",()=>handleSelect(p));
+    puzzle.appendChild(p);
+  });
+  checkSolved();
+}
+function handleSelect(el){
+  if(el.classList.contains("flipped")) return;
+  const pos=Number(el.dataset.pos);
+  if(selected===null){selected=pos;el.style.outline="5px solid #ffd34e";return;}
+  if(selected===pos){el.style.outline="";selected=null;return;}
+  [order[selected],order[pos]]=[order[pos],order[selected]];
+  selected=null; render();
+}
+function checkSolved(){
+  const solved=order.every((v,i)=>v===i);
+  secretCard.style.display=solved?"block":"none";
+}
+document.getElementById("shuffleBtn").onclick=()=>{
+  do { order.sort(()=>Math.random()-.5); } while(order.every((v,i)=>v===i));
+  selected=null; render();
+};
+document.getElementById("resetBtn").onclick=()=>{order=[...Array(total).keys()];selected=null;render();};
+document.getElementById("flipAll").onclick=()=>document.querySelectorAll(".piece").forEach(p=>p.classList.add("flipped"));
+
+document.getElementById("showWords").onclick=()=>{
+  const area=document.getElementById("message");
+  area.innerHTML="";
+  words.forEach((w,i)=>{
+    const slot=document.createElement("div");slot.className="slot";slot.dataset.answer=w;
+    slot.textContent=(i+1)+". Letakkan perkataan";
+    area.appendChild(slot);
+  });
+  // Click-to-place word tiles, intentionally simple for primary pupils.
+  words.forEach(w=>{
+    const b=document.createElement("div");b.className="word";b.textContent=w;b.draggable=true;
+    b.onclick=()=>{
+      document.querySelectorAll(".word").forEach(x=>x.classList.remove("selected"));
+      b.classList.add("selected");
+    };
+    b.ondragstart=e=>e.dataTransfer.setData("text/plain",w);
+    area.appendChild(b);
+  });
+  area.querySelectorAll(".slot").forEach((slot)=>{
+    slot.ondragover=e=>e.preventDefault();
+    slot.ondrop=e=>{place(slot,e.dataTransfer.getData("text/plain"));};
+    slot.onclick=()=>{
+      const b=document.querySelector(".word.selected"); if(b) place(slot,b.textContent);
+    };
+  });
+  area.querySelectorAll(".word").forEach(b=>b.ondblclick=()=>{
+    const empty=[...area.querySelectorAll(".slot")].find(s=>s.textContent.includes("Letakkan"));
+    if(empty) place(empty,b.textContent);
+  });
+};
+function place(slot,w){
+  slot.textContent=w; slot.dataset.value=w;
+  const expected=words[[...document.querySelectorAll(".slot")].indexOf(slot)];
+  const slots=[...document.querySelectorAll(".slot")];
+  if(slots.every((s,i)=>s.dataset.value===words[i])){
+    const ok=document.getElementById("success");
+    ok.style.display="block";
+    ok.innerHTML="🎉 Tahniah! Mesej rahsia lengkap:<br><br><b>SEMANGAT BEKERJASAMA DAPAT MENGEKALKAN KEHARMONIAN BERSAMA.</b>";
+  }
+}
+render();
+</script>
+</body>
+</html>
